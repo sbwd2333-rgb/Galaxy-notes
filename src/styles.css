@@ -605,6 +605,67 @@ body {
   font-family: 'Cascadia Code', Consolas, monospace;
 }
 
+/* ---------- 布局编辑（拖动星球） ---------- */
+.layout-entry {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(16, 19, 27, 0.72);
+  color: rgba(232, 234, 240, 0.66);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: color 150ms, border-color 150ms, background 150ms;
+}
+
+.layout-entry:hover {
+  color: #eaf1ff;
+  border-color: rgba(110, 168, 255, 0.4);
+  background: rgba(110, 168, 255, 0.14);
+}
+
+.layout-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(110, 168, 255, 0.24);
+  background: rgba(16, 19, 27, 0.88);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
+.layout-bar-text {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(232, 234, 240, 0.72);
+}
+
+.btn.small {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  border-radius: 999px;
+}
+
+.galaxy-root.layout-editing canvas {
+  cursor: grab;
+}
+
 /* ---------- 星球标题浮层（不吃鼠标事件） ---------- */
 .planet-tip {
   pointer-events: none;

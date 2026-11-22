@@ -16,8 +16,8 @@
     "selftest": "electron . --selftest",
     "smoke": "electron . --smoke",
     "test:store": "node scripts/test-store.mjs",
-    "test:ui": "node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/related-test.mjs && node scripts/scale-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
-    "test": "node scripts/test-store.mjs && node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/related-test.mjs && node scripts/scale-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
+    "test:ui": "node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/related-test.mjs && node scripts/scale-test.mjs && node scripts/layout-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
+    "test": "node scripts/test-store.mjs && node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/related-test.mjs && node scripts/scale-test.mjs && node scripts/layout-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
     "pack": "electron-vite build && electron-builder --win --dir --config.electronDist=node_modules/electron/dist --config.win.signAndEditExecutable=false",
     "dist": "electron-vite build && electron-builder --win --config.electronDist=node_modules/electron/dist --config.win.signAndEditExecutable=false"
   },

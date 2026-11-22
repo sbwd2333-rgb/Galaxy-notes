@@ -28,12 +28,15 @@ interface GalaxySceneProps {
   hoveredLink: string | null
   camera: CameraState
   editing: boolean
+  /** 布局编辑模式：星球可以拖动 */
+  layoutEditing: boolean
   sceneApi: React.MutableRefObject<SceneApi | null>
   onHoverPlanet: (gid: string | null) => void
   onHoverLink: (id: string | null) => void
   onPlanetClick: (gid: string) => void
   onPlanetSelect: (gid: string) => void
   onPlanetContextMenu: (gid: string) => void
+  onPlanetDragEnd: (gid: string, pos: Vec3) => void
   onBlankClick: () => void
   onBlankContextMenu: (x: number, y: number) => void
   onCameraChange: (camera: CameraState) => void
@@ -191,12 +194,13 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
 
   return (
     <div
-      className="galaxy-root"
+      className={`galaxy-root ${props.layoutEditing ? 'layout-editing' : ''}`}
       onPointerDown={(e) => {
         pointerDown.current = { x: e.clientX, y: e.clientY }
       }}
       onContextMenu={(e) => {
         e.preventDefault()
+        if (props.layoutEditing) return
         if (planetMenuHandled.current) {
           planetMenuHandled.current = false
           return
@@ -216,6 +220,7 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
         onPointerMissed={(e) => {
           const d = pointerDown.current
           if (!d) return
+          if (props.layoutEditing) return
           const moved = Math.hypot(e.clientX - d.x, e.clientY - d.y)
           if (moved < C.CLICK_SLOP_PX) props.onBlankClick()
         }}
@@ -240,6 +245,7 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
               scale={n.scale ?? 1}
               selected={props.selection.includes(n.gid)}
               hovered={props.hoveredPlanet === n.gid}
+              layoutEditing={props.layoutEditing}
               onHover={props.onHoverPlanet}
               onSelect={props.onPlanetSelect}
               onOpen={props.onPlanetClick}
@@ -247,6 +253,7 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
                 planetMenuHandled.current = true
                 props.onPlanetContextMenu(gid)
               }}
+              onDragEnd={props.onPlanetDragEnd}
             />
           )
         })}

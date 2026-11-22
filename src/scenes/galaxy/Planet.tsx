@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 import { getPlanetTexture, getSelectionRingTexture, getGlowTexture } from './PlanetTexture'
@@ -17,10 +17,13 @@ export interface PlanetProps {
   scale: number
   selected: boolean
   hovered: boolean
+  /** 布局编辑模式：可以拖动星球 */
+  layoutEditing: boolean
   onHover: (gid: string | null) => void
   onSelect: (gid: string) => void
   onOpen: (gid: string) => void
   onPlanetContextMenu: (gid: string) => void
+  onDragEnd: (gid: string, pos: Vec3) => void
 }
 
 export function planetRadius(degree: number): number {
@@ -43,14 +46,23 @@ export function Planet({
   scale,
   selected,
   hovered,
+  layoutEditing,
   onHover,
   onSelect,
   onOpen,
-  onPlanetContextMenu
+  onPlanetContextMenu,
+  onDragEnd
 }: PlanetProps): JSX.Element {
   const spriteRef = useRef<THREE.Sprite>(null)
   const ringRef = useRef<THREE.Sprite>(null)
+  const groupRef = useRef<THREE.Group>(null)
   const [showTitle, setShowTitle] = useState(false)
+  /** 拖动中：不要再触发 hover，否则 React 重渲染会把 group 位置重置回 props */
+  const dragRef = useRef(false)
+
+  const camera = useThree((s) => s.camera)
+  const gl = useThree((s) => s.gl)
+  const controls = useThree((s) => s.controls) as unknown as { enabled: boolean } | null
 
   const texture = useMemo(() => getPlanetTexture(gid, color), [gid, color])
   const glowTexture = useMemo(() => getGlowTexture(color), [color])
@@ -79,19 +91,83 @@ export function Planet({
     }
     const ring = ringRef.current
     if (ring) {
-      ring.visible = selected
+      ring.visible = selected || dragRef.current
       const mat = ring.material as THREE.SpriteMaterial
-      const targetOpacity = selected ? 1 : 0
+      const targetOpacity = selected || dragRef.current ? 1 : 0
       mat.opacity = THREE.MathUtils.damp(mat.opacity, targetOpacity, 14, Math.min(delta, 0.05))
       const ringScale = (spriteRef.current?.scale.x ?? baseScale) * 1.32
       ring.scale.set(ringScale, ringScale, 1)
     }
   })
 
+  /** 把一个屏幕坐标投到「过星球、正对相机」的平面上 */
+  const pointOnPlane = (
+    clientX: number,
+    clientY: number,
+    plane: THREE.Plane
+  ): THREE.Vector3 | null => {
+    const rect = gl.domElement.getBoundingClientRect()
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1
+    )
+    const ray = new THREE.Raycaster()
+    ray.setFromCamera(ndc, camera)
+    const hit = new THREE.Vector3()
+    return ray.ray.intersectPlane(plane, hit) ? hit : null
+  }
+
+  const startDrag = (e: ThreeEvent<PointerEvent>): void => {
+    if (!layoutEditing) return
+    e.stopPropagation()
+    const group = groupRef.current
+    if (!group) return
+
+    const ne = e.nativeEvent
+    const camDir = new THREE.Vector3()
+    camera.getWorldDirection(camDir)
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camDir, group.position.clone())
+    const startHit = pointOnPlane(ne.clientX, ne.clientY, plane)
+    // 记录「点击点 → 星球中心」的偏移，拖起来不会瞬间跳到指针下
+    const offset = startHit ? group.position.clone().sub(startHit) : new THREE.Vector3()
+
+    dragRef.current = true
+    if (controls) controls.enabled = false
+    gl.domElement.style.cursor = 'grabbing'
+
+    const move = (ev: PointerEvent): void => {
+      if (!dragRef.current) return
+      const hit = pointOnPlane(ev.clientX, ev.clientY, plane)
+      if (!hit) return
+      const p = hit.add(offset)
+      group.position.set(p.x, p.y, p.z)
+    }
+    const up = (): void => {
+      dragRef.current = false
+      if (controls) controls.enabled = true
+      gl.domElement.style.cursor = ''
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      const g = groupRef.current
+      if (g) onDragEnd(gid, [g.position.x, g.position.y, g.position.z])
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  // 编辑模式下整块画布是抓手光标
+  useEffect(() => {
+    if (!layoutEditing) return
+    gl.domElement.style.cursor = 'grab'
+    return () => {
+      gl.domElement.style.cursor = ''
+    }
+  }, [layoutEditing, gl])
+
   const displayTitle = title.trim() || UNTITLED
 
   return (
-    <group position={position}>
+    <group ref={groupRef} position={position}>
       {/* 柔光层：让远景下的星球是「一颗发光的星」而不是一个彩色小点 */}
       <sprite
         scale={[baseScale * 2.7, baseScale * 2.7, 1]}
@@ -111,22 +187,27 @@ export function Planet({
       <sprite
         ref={spriteRef}
         scale={[baseScale, baseScale, 1]}
+        onPointerDown={startDrag}
         onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+          if (dragRef.current) return
           e.stopPropagation()
           onHover(gid)
         }}
         onPointerOut={(e: ThreeEvent<PointerEvent>) => {
+          if (dragRef.current) return
           e.stopPropagation()
           onHover(null)
         }}
         onClick={(e: ThreeEvent<MouseEvent>) => {
+          if (layoutEditing) return
           e.stopPropagation()
           if (e.nativeEvent.ctrlKey) onSelect(gid)
           else onOpen(gid)
         }}
         onContextMenu={(e: ThreeEvent<MouseEvent>) => {
-          e.stopPropagation()
           e.nativeEvent.preventDefault()
+          if (layoutEditing) return
+          e.stopPropagation()
           onPlanetContextMenu(gid)
         }}
         renderOrder={2}

@@ -10,9 +10,11 @@ import { RenameModal } from './components/RenameModal'
 import { ColorModal } from './components/ColorModal'
 import { DeleteModal } from './components/DeleteModal'
 import { DeleteVaultModal } from './components/DeleteVaultModal'
+import { ConfirmModal } from './components/ConfirmModal'
 import { Intro } from './components/Intro'
 import { Welcome } from './components/Welcome'
 import { Toast } from './components/Toast'
+import type { Vec3 } from './lib/layout'
 import type { ContextMenuItem, VaultItem, VaultSettings } from '@shared/types'
 
 export default function App(): JSX.Element {
@@ -31,6 +33,8 @@ export default function App(): JSX.Element {
   const switchVault = useVault((s) => s.switchVault)
   const deleteVault = useVault((s) => s.deleteVault)
   const createNote = useVault((s) => s.createNote)
+  const updateNote = useVault((s) => s.updateNote)
+  const setPositions = useVault((s) => s.setPositions)
   const saveSettings = useVault((s) => s.saveSettings)
 
   const appState = useUi((s) => s.appState)
@@ -58,6 +62,10 @@ export default function App(): JSX.Element {
   const [booted, setBooted] = useState(false)
   const [introDone, setIntroDone] = useState(false)
   const [deletingVault, setDeletingVault] = useState<VaultItem | null>(null)
+  const [layoutEditing, setLayoutEditing] = useState(false)
+  const [confirmLeaveLayout, setConfirmLeaveLayout] = useState(false)
+  const layoutSnapshot = useRef<Record<string, Vec3> | null>(null)
+  const layoutDirty = useRef(false)
   const sceneApi = useRef<SceneApi | null>(null)
   const editorRef = useRef<NoteEditorHandle | null>(null)
   const corruptShown = useRef(false)
@@ -89,12 +97,84 @@ export default function App(): JSX.Element {
     return off
   }, [])
 
+  // ---------- 布局编辑（拖动星球改位置） ----------
+
+  const enterLayoutEdit = useCallback(() => {
+    layoutSnapshot.current = { ...positions }
+    layoutDirty.current = false
+    clearSelection()
+    setLayoutEditing(true)
+  }, [positions, clearSelection])
+
+  /** 把当前布局写回磁盘（只写真正移动过的） */
+  const saveLayout = useCallback(async (): Promise<boolean> => {
+    const snap = layoutSnapshot.current ?? {}
+    const current = useVault.getState().positions
+    let allOk = true
+    let moved = 0
+    for (const [gid, p] of Object.entries(current)) {
+      const old = snap[gid]
+      if (!old) continue
+      const d = Math.abs(old[0] - p[0]) + Math.abs(old[1] - p[1]) + Math.abs(old[2] - p[2])
+      if (d < 0.01) continue
+      const res = await updateNote(gid, { pos: p })
+      if (!res) allOk = false
+      else moved++
+    }
+    if (allOk) {
+      layoutSnapshot.current = { ...current }
+      layoutDirty.current = false
+    }
+    if (moved > 0) showToast(`位置已保存（${moved} 颗星球）`)
+    else showToast('位置没有变化')
+    return allOk
+  }, [updateNote, showToast])
+
+  const exitLayoutEdit = useCallback(
+    (save: boolean) => {
+      if (save) {
+        void saveLayout()
+      } else if (layoutSnapshot.current) {
+        setPositions(layoutSnapshot.current)
+      }
+      layoutDirty.current = false
+      setLayoutEditing(false)
+      setConfirmLeaveLayout(false)
+    },
+    [saveLayout, setPositions]
+  )
+
+  /** 点「退出」：没动过直接退，动过就问一句 */
+  const requestExitLayout = useCallback(() => {
+    if (layoutDirty.current) setConfirmLeaveLayout(true)
+    else exitLayoutEdit(false)
+  }, [exitLayoutEdit])
+
+  const handlePlanetDragEnd = useCallback(
+    (gid: string, pos: Vec3) => {
+      const current = useVault.getState().positions
+      const old = current[gid]
+      if (old) {
+        const d = Math.abs(old[0] - pos[0]) + Math.abs(old[1] - pos[1]) + Math.abs(old[2] - pos[2])
+        if (d < 0.02) return
+      }
+      setPositions({ ...current, [gid]: pos })
+      layoutDirty.current = true
+    },
+    [setPositions]
+  )
+
   // 全局 Esc：焦点不在编辑器里时也能缩回
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
       if (linkModal || renameGid || recolorGid || deleteGid) return
       if (e.defaultPrevented) return
+      if (layoutEditing) {
+        if (confirmLeaveLayout) return
+        requestExitLayout()
+        return
+      }
       if (appState.kind === 'editor') {
         void editorRef.current?.requestClose()
       } else if (selection.length > 0) {
@@ -103,7 +183,18 @@ export default function App(): JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [appState.kind, selection.length, linkModal, renameGid, recolorGid, deleteGid, clearSelection])
+  }, [
+    appState.kind,
+    selection.length,
+    linkModal,
+    renameGid,
+    recolorGid,
+    deleteGid,
+    clearSelection,
+    layoutEditing,
+    confirmLeaveLayout,
+    requestExitLayout
+  ])
 
   const handleCamera = useCallback(
     (camera: VaultSettings['camera']) => {
@@ -185,12 +276,13 @@ export default function App(): JSX.Element {
   /** 搜索结果：相机先飞到那颗星球，再进编辑；退出时它就在画面中央 */
   const handleOpenNote = useCallback(
     (gid: string) => {
+      if (layoutEditing) return
       const pos = positions[gid]
       if (pos) sceneApi.current?.focusOn(pos)
       clearSelection()
       enterEditor(gid)
     },
-    [positions, clearSelection, enterEditor]
+    [positions, clearSelection, enterEditor, layoutEditing]
   )
 
   /** 编辑器里点「关联的笔记」：先存当前这篇，再切过去；顺手把相机对到目标星球 */
@@ -397,12 +489,14 @@ export default function App(): JSX.Element {
             hoveredLink={hoveredLink}
             camera={settings?.camera ?? { position: [0, 40, 120], target: [0, 0, 0] }}
             editing={appState.kind === 'editor' || !introDone}
+            layoutEditing={layoutEditing}
             sceneApi={sceneApi}
             onHoverPlanet={setHoveredPlanet}
             onHoverLink={setHoveredLink}
             onPlanetClick={enterEditor}
             onPlanetSelect={toggleSelection}
             onPlanetContextMenu={onPlanetContextMenu}
+            onPlanetDragEnd={handlePlanetDragEnd}
             onBlankClick={() => {
               if (appState.kind === 'editor') return
               if (selection.length > 0) clearSelection()
@@ -424,9 +518,47 @@ export default function App(): JSX.Element {
           />
         )}
 
-        {selection.length === 2 && appState.kind === 'galaxy' && (
+        {selection.length === 2 && appState.kind === 'galaxy' && !layoutEditing && (
           <div className="selection-hint">已选中 2 颗星球 · 右键可以建立关联</div>
         )}
+
+        {/* 布局编辑：入口 + 顶部工具条 */}
+        {loaded && !layoutEditing && appState.kind === 'galaxy' && (
+          <button className="layout-entry" onClick={enterLayoutEdit} title="拖动星球调整位置">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            编辑位置
+          </button>
+        )}
+
+        {layoutEditing && (
+          <div className="layout-bar">
+            <span className="layout-bar-text">拖动星球调整位置</span>
+            <button className="btn primary small" onClick={() => void saveLayout()}>
+              保存
+            </button>
+            <button className="btn ghost small" onClick={requestExitLayout}>
+              退出
+            </button>
+          </div>
+        )}
+
+        <ConfirmModal
+          open={confirmLeaveLayout}
+          title="保存位置改动？"
+          message="你拖动过星球。保存后它们会固定在新位置；不保存就恢复成拖动前的样子。"
+          confirmText="保存并退出"
+          cancelText="不保存，恢复原样"
+          onConfirm={() => exitLayoutEdit(true)}
+          onCancel={() => exitLayoutEdit(false)}
+        />
 
         {error && !error.includes('NO_VAULT') && (
           <div className="boot-error">{error}</div>
