@@ -193,6 +193,18 @@ export default function App(): JSX.Element {
     [positions, clearSelection, enterEditor]
   )
 
+  /** 编辑器里点「关联的笔记」：先存当前这篇，再切过去；顺手把相机对到目标星球 */
+  const handleOpenRelated = useCallback(
+    async (gid: string) => {
+      if (appState.kind === 'editor' && appState.noteId === gid) return
+      await editorRef.current?.flush()
+      const pos = positions[gid]
+      if (pos) sceneApi.current?.focusOn(pos)
+      enterEditor(gid)
+    },
+    [appState, positions, enterEditor]
+  )
+
   // Ctrl+K 聚焦搜索（编辑器里 Ctrl+K 是插入链接，不抢）
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -408,6 +420,7 @@ export default function App(): JSX.Element {
             note={activeNote}
             editorRef={editorRef}
             onClosed={exitEditor}
+            onOpenNote={(gid) => void handleOpenRelated(gid)}
           />
         )}
 

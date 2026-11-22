@@ -17,6 +17,8 @@ export interface Note {
   updated: string
   color: string
   pos: [number, number, number]
+  /** 手动星球大小倍率（0.6~2.5，1 为基准）；用来把重点笔记放大 */
+  scale?: number
   doc: ProseMirrorDoc
   /** 纯文本快照，每次保存同步更新，供未来 AI / 搜索使用 */
   text: string
@@ -134,6 +136,7 @@ export interface NotePatch {
   text?: string
   color?: string
   pos?: [number, number, number]
+  scale?: number
 }
 
 export interface Api {

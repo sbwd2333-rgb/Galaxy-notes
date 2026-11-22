@@ -6,13 +6,19 @@ interface EditorOverlayProps {
   note: Note
   editorRef: React.MutableRefObject<NoteEditorHandle | null>
   onClosed: () => void
+  onOpenNote?: (gid: string) => void
 }
 
 /**
  * 编辑态浮层：星系留在底下（不卸载），这里只叠一层 blur + 暗色 + 卡片。
  * 点卡片外的任何地方 = 保存并缩回（规格书 §5.3）。
  */
-export function EditorOverlay({ note, editorRef, onClosed }: EditorOverlayProps): JSX.Element {
+export function EditorOverlay({
+  note,
+  editorRef,
+  onClosed,
+  onOpenNote
+}: EditorOverlayProps): JSX.Element {
   const [closing, setClosing] = useState(false)
 
   const handleClosed = (): void => {
@@ -31,7 +37,12 @@ export function EditorOverlay({ note, editorRef, onClosed }: EditorOverlayProps)
       }}
     >
       <div className="editor-stage">
-        <NoteEditor ref={editorRef} note={note} onClosed={handleClosed} />
+        <NoteEditor
+          ref={editorRef}
+          note={note}
+          onClosed={handleClosed}
+          onOpenNote={onOpenNote}
+        />
       </div>
     </div>
   )

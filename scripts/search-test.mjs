@@ -22,6 +22,14 @@ const mock = `
 window.__CALLS__ = [];
 const palette = ${JSON.stringify(palette)};
 const titles = ['项目启动会', '项目复盘', '读书笔记：注意力', '读书笔记：时间', '给三年后的自己', '未命名的一条'];
+const texts = [
+  '讨论了排期和发布节奏，重点是十月上线',
+  '复盘：沟通成本比预期高',
+  '注意力是稀缺资源',
+  '时间管理的本质是取舍',
+  '三年后希望还在写东西',
+  ''
+];
 const notes = titles.map((t, i) => {
   const y = 1 - (i / (titles.length - 1)) * 2;
   const r = Math.sqrt(Math.max(0, 1 - y * y));
@@ -30,7 +38,9 @@ const notes = titles.map((t, i) => {
     gid: 'gid' + i, title: t, created: '2026-11-20T10:00:00.000+08:00',
     updated: '2026-11-20T10:00:00.000+08:00', color: palette[i % palette.length],
     pos: [Math.cos(theta) * r * 62, y * 62 * 0.8, Math.sin(theta) * r * 62],
-    doc: { type: 'doc', content: [{ type: 'paragraph', content: [{type:'text', text:'正文'}] }] }, text: '正文'
+    scale: 1,
+    doc: { type: 'doc', content: [{ type: 'paragraph', content: [{type:'text', text: texts[i]}] }] },
+    text: texts[i]
   };
 });
 const settings = { version: 1, vaultPath: 'C:/mock/vault', lastNoteId: null,
@@ -125,7 +135,25 @@ steps.push({ step: 'highlight-match', ok: marks >= 2, marks })
 const vaultItemsWhileSearching = await page.locator('.vault-item').count()
 steps.push({ step: 'list-replaced', ok: vaultItemsWhileSearching === 0 })
 
+// 2.5) 搜正文：标题里没有「十月」，但第一篇正文里有
+await page.fill('.search-input', '十月')
+await page.waitForTimeout(600)
+const bodyCount = await page.locator('.search-result').count()
+const snippet = await page.locator('.result-snippet').innerText().catch(() => '')
+const titleMarks = await page.locator('.result-title mark').count()
+steps.push({
+  step: 'search-body-text',
+  ok: bodyCount === 1 && snippet.includes('十月') && titleMarks === 0,
+  bodyCount,
+  snippet,
+  titleMarks
+})
+const snippetMark = await page.locator('.result-snippet mark').count()
+steps.push({ step: 'snippet-highlighted', ok: snippetMark >= 1, snippetMark })
+
 // 3) 点第一条 → 进编辑器
+await page.fill('.search-input', '读书笔记')
+await page.waitForTimeout(600)
 await page.locator('.search-result').first().click()
 await page.waitForTimeout(1600)
 const card = await page.locator('.editor-card').count()

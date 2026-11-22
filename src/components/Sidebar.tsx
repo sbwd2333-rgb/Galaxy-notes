@@ -2,7 +2,13 @@ import { useMemo, useRef, useState } from 'react'
 import { useVault } from '../store/vaultStore'
 import { PALETTE } from '../lib/color'
 import { UNTITLED } from '@shared/constants'
-import type { VaultItem } from '@shared/types'
+import type { Note, VaultItem } from '@shared/types'
+
+interface SearchHit {
+  note: Note
+  titleHit: boolean
+  snippet: string | null
+}
 
 interface SidebarProps {
   busy: boolean
@@ -58,11 +64,28 @@ export function Sidebar({
 
   const q = query.trim().toLowerCase()
   const searching = q.length > 0
-  const results = useMemo(() => {
+
+  // 标题和正文都搜：标题命中的排前面，正文命中给一段上下文
+  const results = useMemo<SearchHit[]>(() => {
     if (!q) return []
-    return notes
-      .filter((n) => (n.title || '').toLowerCase().includes(q))
-      .slice(0, 60)
+    const hits: SearchHit[] = []
+    for (const n of notes) {
+      const titleHit = (n.title || '').toLowerCase().includes(q)
+      const text = n.text || ''
+      const idx = text.toLowerCase().indexOf(q)
+      if (!titleHit && idx < 0) continue
+
+      let snippet: string | null = null
+      if (idx >= 0) {
+        const start = Math.max(0, idx - 16)
+        const end = Math.min(text.length, idx + q.length + 34)
+        const body = text.slice(start, end).replace(/\s+/g, ' ')
+        snippet = `${start > 0 ? '…' : ''}${body}${end < text.length ? '…' : ''}`
+      }
+      hits.push({ note: n, titleHit, snippet })
+    }
+    hits.sort((a, b) => Number(b.titleHit) - Number(a.titleHit))
+    return hits.slice(0, 60)
   }, [notes, q])
 
   const openResult = (gid: string): void => {
@@ -102,7 +125,7 @@ export function Sidebar({
               searchRef.current?.blur()
             } else if (e.key === 'Enter' && results[0]) {
               e.preventDefault()
-              openResult(results[0].gid)
+              openResult(results[0].note.gid)
             }
           }}
         />
@@ -117,18 +140,31 @@ export function Sidebar({
         {searching ? (
           <>
             <div className="search-count">
-              {results.length > 0 ? `${results.length} 篇标题匹配` : '没有匹配'}
+              {results.length > 0 ? `${results.length} 篇匹配` : '没有匹配'}
             </div>
-            {results.map((n) => (
-              <button key={n.gid} className="search-result" onClick={() => openResult(n.gid)}>
-                <span className="result-dot" style={{ background: n.color }} />
-                <span className="result-title">
-                  <Highlighted text={n.title.trim() || UNTITLED} q={q} />
+            {results.map((r) => (
+              <button
+                key={r.note.gid}
+                className="search-result"
+                onClick={() => openResult(r.note.gid)}
+              >
+                <span className="result-dot" style={{ background: r.note.color }} />
+                <span className="result-body">
+                  <span className={`result-title ${r.titleHit ? '' : 'dim'}`}>
+                    <Highlighted text={r.note.title.trim() || UNTITLED} q={q} />
+                  </span>
+                  {r.snippet && (
+                    <span className="result-snippet">
+                      <Highlighted text={r.snippet} q={q} />
+                    </span>
+                  )}
                 </span>
               </button>
             ))}
             {results.length === 0 && (
-              <div className="search-empty">没有标题包含「{query.trim()}」的笔记。搜的是标题，不是正文。</div>
+              <div className="search-empty">
+                没有标题或正文包含「{query.trim()}」的笔记。搜的是当前星系里的文字。
+              </div>
             )}
           </>
         ) : (

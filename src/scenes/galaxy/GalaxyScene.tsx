@@ -237,6 +237,7 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
               color={n.color}
               position={pos}
               degree={props.degrees[n.gid] ?? 0}
+              scale={n.scale ?? 1}
               selected={props.selection.includes(n.gid)}
               hovered={props.hoveredPlanet === n.gid}
               onHover={props.onHoverPlanet}

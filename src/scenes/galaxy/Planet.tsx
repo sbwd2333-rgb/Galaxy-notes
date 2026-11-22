@@ -13,6 +13,8 @@ export interface PlanetProps {
   color: string
   position: Vec3
   degree: number
+  /** 手动大小倍率（0.6~2.5），用来突出重点笔记 */
+  scale: number
   selected: boolean
   hovered: boolean
   onHover: (gid: string | null) => void
@@ -38,6 +40,7 @@ export function Planet({
   color,
   position,
   degree,
+  scale,
   selected,
   hovered,
   onHover,
@@ -53,7 +56,7 @@ export function Planet({
   const glowTexture = useMemo(() => getGlowTexture(color), [color])
   const ringTexture = useMemo(() => getSelectionRingTexture(), [])
 
-  const radius = planetRadius(degree) * PLANET_VISUAL
+  const radius = planetRadius(degree) * PLANET_VISUAL * scale
   const baseScale = radius * 2
   const targetScale = baseScale * Math.max(hovered ? C.HOVER_SCALE : 1, selected ? C.SELECT_SCALE : 1)
 

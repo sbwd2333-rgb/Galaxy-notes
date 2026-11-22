@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -23,15 +23,19 @@ interface NoteEditorProps {
   note: Note
   onClosed: () => void
   onSavingChange?: (state: 'idle' | 'saving' | 'saved' | 'error') => void
+  /** 跳到关联的另一篇（编辑器内切换） */
+  onOpenNote?: (gid: string) => void
 }
 
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 
 export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function NoteEditor(
-  { note, onClosed, onSavingChange },
+  { note, onClosed, onSavingChange, onOpenNote },
   ref
 ): JSX.Element {
   const updateNote = useVault((s) => s.updateNote)
+  const allLinks = useVault((s) => s.links)
+  const allNotes = useVault((s) => s.notes)
   const showToast = useUi((s) => s.showToast)
   const pendingInsertImage = useUi((s) => s.pendingInsertImage)
   const setPendingInsertImage = useUi((s) => s.setPendingInsertImage)
@@ -47,6 +51,19 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
   const closedRef = useRef(false)
 
   titleRef.current = title
+
+  // 反向链接：这个星系里跟当前笔记相连的所有笔记（关联是无向的）
+  const related = useMemo(() => {
+    const out: { gid: string; title: string; color: string; label: string }[] = []
+    for (const l of allLinks) {
+      if (l.a !== note.gid && l.b !== note.gid) continue
+      const otherId = l.a === note.gid ? l.b : l.a
+      const other = allNotes.find((n) => n.gid === otherId)
+      if (!other) continue
+      out.push({ gid: other.gid, title: other.title, color: other.color, label: l.label })
+    }
+    return out
+  }, [allLinks, allNotes, note.gid])
 
   useEffect(() => {
     onSavingChange?.(saveState)
@@ -411,6 +428,32 @@ export const NoteEditor = forwardRef<NoteEditorHandle, NoteEditorProps>(function
 
       <div className="editor-scroll">
         <EditorContent editor={editor} />
+      </div>
+
+      <div className="editor-links">
+        {related.length === 0 ? (
+          <div className="editor-links-empty">
+            还没有关联 · 回星系里 Ctrl+左键选中两篇，右键就能连起来
+          </div>
+        ) : (
+          <>
+            <span className="editor-links-label">关联 {related.length}</span>
+            <div className="editor-links-list">
+              {related.map((r) => (
+                <button
+                  key={r.gid}
+                  className="link-chip"
+                  onClick={() => onOpenNote?.(r.gid)}
+                  title={r.label ? `${r.title || UNTITLED} · ${r.label}` : r.title || UNTITLED}
+                >
+                  <span className="chip-dot" style={{ background: r.color }} />
+                  <span className="chip-title">{r.title.trim() || UNTITLED}</span>
+                  {r.label && <span className="chip-label">{r.label}</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

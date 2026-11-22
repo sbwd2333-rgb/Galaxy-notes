@@ -223,6 +223,10 @@ export class VaultStore {
       updated: typeof n.updated === 'string' ? n.updated : nowIso(),
       color: typeof n.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(n.color) ? n.color : C.PALETTE[0],
       pos,
+      scale:
+        typeof n.scale === 'number' && Number.isFinite(n.scale) && n.scale > 0
+          ? Math.min(2.5, Math.max(0.6, n.scale))
+          : 1,
       doc: (n.doc && typeof n.doc === 'object' ? n.doc : EMPTY_DOC) as Note['doc'],
       text: typeof n.text === 'string' ? n.text : ''
     }
@@ -370,6 +374,7 @@ export class VaultStore {
       updated: at,
       color: input.color ?? (await this.pickColor()),
       pos: input.pos,
+      scale: 1,
       doc: input.doc ?? (EMPTY_DOC as Note['doc']),
       text: ''
     }
