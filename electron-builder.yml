@@ -1,4 +1,4 @@
-appId: com.galaxynotes.app
+﻿appId: com.galaxynotes.app
 productName: Galaxy Notes
 directories:
   buildResources: build
@@ -7,6 +7,9 @@ files:
   - out/**/*
   - package.json
 asar: true
+electronLanguages:
+  - zh-CN
+  - en-US
 win:
   target:
     - target: nsis
@@ -20,3 +23,4 @@ nsis:
   createDesktopShortcut: true
   shortcutName: Galaxy Notes
   deleteAppDataOnUninstall: false
+

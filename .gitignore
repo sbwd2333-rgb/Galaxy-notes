@@ -8,3 +8,8 @@ scripts/.tmp/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
+
+dist-demo/
+*.zip
+*.7z
+
