@@ -606,11 +606,16 @@ body {
 }
 
 /* ---------- 布局编辑（拖动星球） ---------- */
-.layout-entry {
+.top-actions {
   position: absolute;
   top: 18px;
   right: 20px;
   z-index: 6;
+  display: flex;
+  gap: 8px;
+}
+
+.pill-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -627,10 +632,22 @@ body {
   transition: color 150ms, border-color 150ms, background 150ms;
 }
 
-.layout-entry:hover {
+.pill-btn:hover {
   color: #eaf1ff;
   border-color: rgba(110, 168, 255, 0.4);
   background: rgba(110, 168, 255, 0.14);
+}
+
+.lock-btn.locked {
+  color: #ffd479;
+  border-color: rgba(255, 212, 121, 0.45);
+  background: rgba(255, 212, 121, 0.12);
+}
+
+.lock-btn.locked:hover {
+  color: #ffe6ad;
+  border-color: rgba(255, 212, 121, 0.65);
+  background: rgba(255, 212, 121, 0.2);
 }
 
 .layout-bar {

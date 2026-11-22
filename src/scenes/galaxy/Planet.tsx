@@ -17,6 +17,8 @@ export interface PlanetProps {
   scale: number
   selected: boolean
   hovered: boolean
+  /** 这颗星球被中键锁定了视线中心 */
+  locked: boolean
   /** 布局编辑模式：可以拖动星球 */
   layoutEditing: boolean
   onHover: (gid: string | null) => void
@@ -24,6 +26,7 @@ export interface PlanetProps {
   onOpen: (gid: string) => void
   onPlanetContextMenu: (gid: string) => void
   onDragEnd: (gid: string, pos: Vec3) => void
+  onMiddleClick: (gid: string) => void
 }
 
 export function planetRadius(degree: number): number {
@@ -46,12 +49,14 @@ export function Planet({
   scale,
   selected,
   hovered,
+  locked,
   layoutEditing,
   onHover,
   onSelect,
   onOpen,
   onPlanetContextMenu,
-  onDragEnd
+  onDragEnd,
+  onMiddleClick
 }: PlanetProps): JSX.Element {
   const spriteRef = useRef<THREE.Sprite>(null)
   const ringRef = useRef<THREE.Sprite>(null)
@@ -91,9 +96,9 @@ export function Planet({
     }
     const ring = ringRef.current
     if (ring) {
-      ring.visible = selected || dragRef.current
+      ring.visible = selected || locked || dragRef.current
       const mat = ring.material as THREE.SpriteMaterial
-      const targetOpacity = selected || dragRef.current ? 1 : 0
+      const targetOpacity = selected || locked || dragRef.current ? 1 : 0
       mat.opacity = THREE.MathUtils.damp(mat.opacity, targetOpacity, 14, Math.min(delta, 0.05))
       const ringScale = (spriteRef.current?.scale.x ?? baseScale) * 1.32
       ring.scale.set(ringScale, ringScale, 1)
@@ -118,6 +123,12 @@ export function Planet({
   }
 
   const startDrag = (e: ThreeEvent<PointerEvent>): void => {
+    // 中键：锁定 / 解锁视线中心
+    if (e.nativeEvent.button === 1) {
+      e.stopPropagation()
+      onMiddleClick(gid)
+      return
+    }
     if (!layoutEditing) return
     e.stopPropagation()
     const group = groupRef.current

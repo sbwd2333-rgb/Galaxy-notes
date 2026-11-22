@@ -64,6 +64,7 @@ export default function App(): JSX.Element {
   const [deletingVault, setDeletingVault] = useState<VaultItem | null>(null)
   const [layoutEditing, setLayoutEditing] = useState(false)
   const [confirmLeaveLayout, setConfirmLeaveLayout] = useState(false)
+  const [lockedPlanet, setLockedPlanet] = useState<string | null>(null)
   const layoutSnapshot = useRef<Record<string, Vec3> | null>(null)
   const layoutDirty = useRef(false)
   const sceneApi = useRef<SceneApi | null>(null)
@@ -164,6 +165,33 @@ export default function App(): JSX.Element {
     [setPositions]
   )
 
+  // ---------- 中键锁定视线中心 ----------
+
+  const lockPlanet = useCallback(
+    (gid: string) => {
+      const pos = useVault.getState().positions[gid]
+      if (!pos) return
+      sceneApi.current?.centerOn(pos)
+      setLockedPlanet(gid)
+      const note = useVault.getState().notes.find((n) => n.gid === gid)
+      showToast(`视角已锁定「${note?.title.trim() || '未命名笔记'}」` )
+    },
+    [showToast]
+  )
+
+  const unlockPlanet = useCallback(() => {
+    setLockedPlanet(null)
+    sceneApi.current?.releaseCenter()
+  }, [])
+
+  const toggleLockPlanet = useCallback(
+    (gid: string) => {
+      if (lockedPlanet === gid) unlockPlanet()
+      else lockPlanet(gid)
+    },
+    [lockedPlanet, lockPlanet, unlockPlanet]
+  )
+
   // 全局 Esc：焦点不在编辑器里时也能缩回
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -217,6 +245,7 @@ export default function App(): JSX.Element {
       if (item.active || switching) return
       await closeEditorIfAny()
       clearSelection()
+      setLockedPlanet(null)
       const res = await switchVault(item.path)
       if (res) showToast(`已切换到「${res.name}」`)
       else showToast('切换星系失败', 'error')
@@ -228,6 +257,7 @@ export default function App(): JSX.Element {
     if (switching) return
     await closeEditorIfAny()
     clearSelection()
+    setLockedPlanet(null)
     const res = await createVault()
     if (res.item) showToast(`新星系「${res.item.name}」已建好`)
     else if (res.message) showToast(res.message, 'error')
@@ -244,6 +274,7 @@ export default function App(): JSX.Element {
     async (item: VaultItem): Promise<boolean> => {
       // 删的是正在用的星系时，先把编辑器里的内容落盘再动手
       if (item.active) await closeEditorIfAny()
+      setLockedPlanet(null)
       const res = await deleteVault(item.path)
       setDeletingVault(null)
       if (!res) {
@@ -497,6 +528,8 @@ export default function App(): JSX.Element {
             onPlanetSelect={toggleSelection}
             onPlanetContextMenu={onPlanetContextMenu}
             onPlanetDragEnd={handlePlanetDragEnd}
+            onPlanetMiddleClick={toggleLockPlanet}
+            lockedPlanet={lockedPlanet}
             onBlankClick={() => {
               if (appState.kind === 'editor') return
               if (selection.length > 0) clearSelection()
@@ -522,20 +555,53 @@ export default function App(): JSX.Element {
           <div className="selection-hint">已选中 2 颗星球 · 右键可以建立关联</div>
         )}
 
-        {/* 布局编辑：入口 + 顶部工具条 */}
+        {/* 布局编辑入口 + 锁定按钮 */}
         {loaded && !layoutEditing && appState.kind === 'galaxy' && (
-          <button className="layout-entry" onClick={enterLayoutEdit} title="拖动星球调整位置">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            编辑位置
-          </button>
+          <div className="top-actions">
+            <button
+              className={`pill-btn lock-btn ${lockedPlanet ? 'locked' : ''}`}
+              onClick={() =>
+                lockedPlanet ? unlockPlanet() : showToast('中键点击任意星球即可锁定视角')
+              }
+              title={lockedPlanet ? '点击解锁，回到自由视角' : '中键点击星球可以锁定视角'}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <rect
+                  x="4.5"
+                  y="10.5"
+                  width="15"
+                  height="9.5"
+                  rx="2.2"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                {lockedPlanet ? (
+                  <path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9" stroke="currentColor" strokeWidth="1.5" />
+                ) : (
+                  <path
+                    d="M8 10.5V7.6a4 4 0 0 1 7.6-1.7"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                )}
+              </svg>
+              {lockedPlanet ? '已锁定' : '锁定'}
+            </button>
+
+            <button className="pill-btn" onClick={enterLayoutEdit} title="拖动星球调整位置">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              编辑位置
+            </button>
+          </div>
         )}
 
         {layoutEditing && (

@@ -23,7 +23,7 @@
     {
       "label": "test:ui",
       "type": "shell",
-      "command": "node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/related-test.mjs && node scripts/scale-test.mjs && node scripts/layout-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
+      "command": "node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/related-test.mjs && node scripts/scale-test.mjs && node scripts/layout-test.mjs && node scripts/lock-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
       "problemMatcher": []
     },
     {

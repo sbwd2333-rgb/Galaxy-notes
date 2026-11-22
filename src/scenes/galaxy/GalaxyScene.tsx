@@ -16,6 +16,15 @@ export interface SceneApi {
   screenToWorld: (x: number, y: number) => Vec3
   /** 相机飞到某颗星球（搜索结果定位用） */
   focusOn: (pos: Vec3, distance?: number) => void
+  /** 把视线中心平移到某点，保持当前观察距离（中键锁定用） */
+  centerOn: (pos: Vec3) => void
+  /** 视线中心回到星系原点 */
+  releaseCenter: () => void
+}
+
+interface ControlsFlightApi {
+  flyTo: (pos: Vec3, distance?: number) => void
+  centerOn: (pos: Vec3) => void
 }
 
 interface GalaxySceneProps {
@@ -37,6 +46,9 @@ interface GalaxySceneProps {
   onPlanetSelect: (gid: string) => void
   onPlanetContextMenu: (gid: string) => void
   onPlanetDragEnd: (gid: string, pos: Vec3) => void
+  /** 中键点击星球：锁定/解锁视线中心 */
+  onPlanetMiddleClick: (gid: string) => void
+  lockedPlanet: string | null
   onBlankClick: () => void
   onBlankContextMenu: (x: number, y: number) => void
   onCameraChange: (camera: CameraState) => void
@@ -47,7 +59,7 @@ function SceneBridge({
   flyRef
 }: {
   sceneApi: React.MutableRefObject<SceneApi | null>
-  flyRef: React.MutableRefObject<((pos: Vec3, distance?: number) => void) | null>
+  flyRef: React.MutableRefObject<ControlsFlightApi | null>
 }): null {
   const { camera, gl } = useThree()
   useEffect(() => {
@@ -77,7 +89,13 @@ function SceneBridge({
         return [p.x, p.y, p.z]
       },
       focusOn: (pos: Vec3, distance?: number) => {
-        flyRef.current?.(pos, distance)
+        flyRef.current?.flyTo(pos, distance)
+      },
+      centerOn: (pos: Vec3) => {
+        flyRef.current?.centerOn(pos)
+      },
+      releaseCenter: () => {
+        flyRef.current?.centerOn([0, 0, 0])
       }
     }
   }, [camera, gl, sceneApi, flyRef])
@@ -91,7 +109,7 @@ function CameraRig({
 }: {
   initial: CameraState
   onChange: (camera: CameraState) => void
-  flyRef: React.MutableRefObject<((pos: Vec3, distance?: number) => void) | null>
+  flyRef: React.MutableRefObject<ControlsFlightApi | null>
 }): JSX.Element {
   const controlsRef = useRef<any>(null)
   const timer = useRef<number | null>(null)
@@ -118,23 +136,38 @@ function CameraRig({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camKey])
 
-  // 注册「飞到某颗星球」
+  // 注册「飞到某颗星球」和「把视线中心平移过去」
   useEffect(() => {
-    flyRef.current = (pos: Vec3, distance = 42) => {
+    const beginFlight = (toPos: THREE.Vector3, toTarget: THREE.Vector3, dur: number): void => {
       const controls = controlsRef.current
       if (!controls) return
-      const target = new THREE.Vector3(pos[0], pos[1], pos[2])
-      const dir = controls.object.position.clone().sub(controls.target)
-      if (dir.lengthSq() < 1e-6) dir.set(0, 0.3, 1)
-      dir.normalize()
-      const toPos = target.clone().add(dir.multiplyScalar(distance))
       flight.current = {
         fromPos: controls.object.position.clone(),
         toPos,
         fromTarget: controls.target.clone(),
-        toTarget: target,
+        toTarget,
         start: performance.now(),
-        dur: 900
+        dur
+      }
+    }
+
+    flyRef.current = {
+      flyTo: (pos: Vec3, distance = 42) => {
+        const controls = controlsRef.current
+        if (!controls) return
+        const target = new THREE.Vector3(pos[0], pos[1], pos[2])
+        const dir = controls.object.position.clone().sub(controls.target)
+        if (dir.lengthSq() < 1e-6) dir.set(0, 0.3, 1)
+        dir.normalize()
+        beginFlight(target.clone().add(dir.multiplyScalar(distance)), target, 900)
+      },
+      centerOn: (pos: Vec3) => {
+        const controls = controlsRef.current
+        if (!controls) return
+        const target = new THREE.Vector3(pos[0], pos[1], pos[2])
+        // 保持「相机相对中心的偏移」不变，只换中心 → 观察距离和角度都不变
+        const offset = controls.object.position.clone().sub(controls.target)
+        beginFlight(target.clone().add(offset), target, 620)
       }
     }
     return () => {
@@ -190,10 +223,27 @@ function CameraRig({
 export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
   const pointerDown = useRef<{ x: number; y: number } | null>(null)
   const planetMenuHandled = useRef(false)
-  const flyRef = useRef<((pos: Vec3, distance?: number) => void) | null>(null)
+  const flyRef = useRef<ControlsFlightApi | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // 中键在 Windows 上会触发自动滚动，必须用非 passive 的原生监听才能拦住
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const block = (e: MouseEvent): void => {
+      if (e.button === 1) e.preventDefault()
+    }
+    el.addEventListener('mousedown', block, { passive: false })
+    el.addEventListener('auxclick', block, { passive: false })
+    return () => {
+      el.removeEventListener('mousedown', block)
+      el.removeEventListener('auxclick', block)
+    }
+  }, [])
 
   return (
     <div
+      ref={rootRef}
       className={`galaxy-root ${props.layoutEditing ? 'layout-editing' : ''}`}
       onPointerDown={(e) => {
         pointerDown.current = { x: e.clientX, y: e.clientY }
@@ -245,6 +295,7 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
               scale={n.scale ?? 1}
               selected={props.selection.includes(n.gid)}
               hovered={props.hoveredPlanet === n.gid}
+              locked={props.lockedPlanet === n.gid}
               layoutEditing={props.layoutEditing}
               onHover={props.onHoverPlanet}
               onSelect={props.onPlanetSelect}
@@ -254,6 +305,7 @@ export function GalaxyScene(props: GalaxySceneProps): JSX.Element {
                 props.onPlanetContextMenu(gid)
               }}
               onDragEnd={props.onPlanetDragEnd}
+              onMiddleClick={props.onPlanetMiddleClick}
             />
           )
         })}
