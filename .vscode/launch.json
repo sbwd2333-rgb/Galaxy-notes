@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "调试主进程 + 窗口（Ctrl+F5 一直跑）",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/electron/dist/electron.exe",
+      "runtimeArgs": ["."],
+      "console": "integratedTerminal",
+      "env": {
+        "ELECTRON_ENABLE_LOGGING": "1"
+      },
+      "preLaunchTask": "build",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "调试主进程（不重新构建）",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/electron/dist/electron.exe",
+      "runtimeArgs": ["."],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

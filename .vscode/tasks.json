@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "node node_modules/electron-vite/bin/electron-vite.js build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "node node_modules/typescript/bin/tsc -p tsconfig.node.json --noEmit && node node_modules/typescript/bin/tsc -p tsconfig.web.json --noEmit",
+      "problemMatcher": []
+    },
+    {
+      "label": "test:store",
+      "type": "shell",
+      "command": "node scripts/test-store.mjs",
+      "problemMatcher": []
+    },
+    {
+      "label": "test:ui",
+      "type": "shell",
+      "command": "node scripts/intro-test.mjs && node scripts/interact-test.mjs && node scripts/link-test.mjs && node scripts/sidebar-test.mjs && node scripts/search-test.mjs && node scripts/delete-vault-test.mjs && node scripts/guard-test.mjs && node scripts/image-test.mjs",
+      "problemMatcher": []
+    },
+    {
+      "label": "pack（出 win-unpacked）",
+      "type": "shell",
+      "command": "node node_modules/electron-vite/bin/electron-vite.js build && node node_modules/electron-builder/out/cli/cli.js --win --dir --config.electronDist=node_modules/electron/dist --config.win.signAndEditExecutable=false",
+      "problemMatcher": []
+    },
+    {
+      "label": "dev（热更新）",
+      "type": "shell",
+      "command": "node node_modules/electron-vite/bin/electron-vite.js dev",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

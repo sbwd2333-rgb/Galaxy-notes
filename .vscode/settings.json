@@ -1,0 +1,33 @@
+{
+  // 构建产物和依赖很大，排除掉能让搜索/监听快很多
+  "files.exclude": {
+    "out": true,
+    "scripts/.tmp": true
+  },
+  "search.exclude": {
+    "out/**": true,
+    "release/**": true,
+    "node_modules/**": true,
+    "pnpm-lock.yaml": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/out/**": true,
+    "**/release/**": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "editor.tabSize": 2,
+  "editor.formatOnSave": false,
+  "files.encoding": "utf8",
+  "files.eol": "\n",
+
+  // 本机 Node 只装在 DeepSeek Harness 的运行时里，这里把它挂进 VS Code 终端的 PATH。
+  // 如果你自己装了 Node 20+，删掉这一段即可。
+  "terminal.integrated.env.windows": {
+    "PATH": "C:\\Users\\19403\\.dsh\\dsh-runtimes\\dsh-primary-runtime\\dependencies\\node\\bin;${env:PATH}",
+    // 双保险：如果 VS Code 是从 DeepSeek Harness 里启动的，会继承这个变量，Electron 会变成纯 Node 模式
+    "ELECTRON_RUN_AS_NODE": ""
+  }
+}

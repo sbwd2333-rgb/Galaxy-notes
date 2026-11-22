@@ -1,0 +1,50 @@
+/** 全局常量。所有魔数统一从这里取（规格书 §13）。 */
+
+export const C = {
+  // 颜色
+  BG: '#05060a',
+  CARD_BG: '#14161d',
+  CARD_BORDER: 'rgba(255,255,255,0.08)',
+  TEXT: '#e8eaf0',
+  TEXT_DIM: 'rgba(232,234,240,0.55)',
+  SELECT_RING: '#ffd479',
+  HIGHLIGHT: '#ffe58a',
+  PALETTE: ['#6ea8ff', '#7ee0b8', '#f5b971', '#e07a9b', '#b58cff', '#5fd0e0'],
+
+  // 星球
+  PLANET_BASE_RADIUS: 0.5,
+  PLANET_MAX_RADIUS: 2.0,
+  PLANET_TEX_SIZE: 256,
+  HOVER_SCALE: 1.15,
+  SELECT_SCALE: 1.08,
+
+  // 星系
+  STARFIELD_COUNT: 5000,
+  STARFIELD_RADIUS: 400,
+  INITIAL_SPHERE_RADIUS: 60,
+  FORCE_TICKS: 300,
+  CAMERA_FOV: 55,
+  MIN_DISTANCE: 8,
+  MAX_DISTANCE: 300,
+  MAX_POLAR: Math.PI * 0.85,
+  BLOOM_INTENSITY: 0.6,
+  BLOOM_THRESHOLD: 0.85,
+  BLOOM_RADIUS: 0.5,
+
+  // 交互
+  CLICK_SLOP_PX: 4,
+  HOVER_DELAY_MS: 150,
+  AUTOSAVE_DEBOUNCE_MS: 800,
+  LINK_GROW_MS: 300,
+  MODAL_IN_MS: 220,
+  TOAST_MS: 3000,
+  MAX_SELECTION: 2,
+
+  // 数据
+  MAX_IMAGE_MB: 20,
+  TEXT_LIMIT: 20000,
+  AI_TEXT_LIMIT: 4000,
+  AI_TIMEOUT_MS: 20000
+} as const
+
+export const UNTITLED = '未命名笔记'

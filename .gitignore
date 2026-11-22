@@ -1,0 +1,10 @@
+node_modules/
+out/
+release/
+dist/
+.vite/
+scripts/.tmp/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
