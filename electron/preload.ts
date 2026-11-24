@@ -42,6 +42,12 @@ const api: Api = {
   pickImage: (noteId: string) => ipcRenderer.invoke('asset:pick-image', noteId),
   clipboardReadImage: () => ipcRenderer.invoke('clipboard:read-image'),
 
+  todosList: () => ipcRenderer.invoke('todos:list'),
+  todosAdd: (text: string) => ipcRenderer.invoke('todos:add', text),
+  todosToggle: (id: string) => ipcRenderer.invoke('todos:toggle', id),
+  todosRemove: (id: string) => ipcRenderer.invoke('todos:remove', id),
+  todosClearDone: () => ipcRenderer.invoke('todos:clear-done'),
+
   showContextMenu: (payload: ContextMenuPayload) => ipcRenderer.invoke('menu:show', payload),
   notify: (level: 'info' | 'error', message: string) =>
     ipcRenderer.invoke('app:notify', level, message),

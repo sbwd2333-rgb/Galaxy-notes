@@ -100,6 +100,15 @@ export interface VaultCreateResult {
   message?: string
 }
 
+/** 右下角书签里的待办 */
+export interface Todo {
+  id: string
+  text: string
+  done: boolean
+  createdAt: string
+  doneAt: string | null
+}
+
 export interface VaultLoadResult {
   notes: Note[]
   links: Link[]
@@ -179,6 +188,13 @@ export interface Api {
   assetSave(input: { noteId: string; data: ArrayBuffer; ext: string }): Promise<{ relPath: string }>
   pickImage(noteId: string): Promise<{ relPath: string } | null>
   clipboardReadImage(): Promise<{ data: ArrayBuffer; ext: string } | null>
+
+  // 待办
+  todosList(): Promise<Todo[]>
+  todosAdd(text: string): Promise<Todo>
+  todosToggle(id: string): Promise<Todo | null>
+  todosRemove(id: string): Promise<Todo[]>
+  todosClearDone(): Promise<Todo[]>
 
   // 系统
   showContextMenu(payload: ContextMenuPayload): Promise<ContextMenuItemId | null>

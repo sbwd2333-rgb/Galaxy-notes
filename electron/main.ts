@@ -9,6 +9,7 @@ import { registerNotesIpc } from './ipc/notes'
 import { registerLinksIpc } from './ipc/links'
 import { registerAssetsIpc } from './ipc/assets'
 import { registerMenuIpc } from './ipc/menu'
+import { registerTodosIpc } from './ipc/todos'
 import { readLastVault, writeLastVault } from './ipc/pointer'
 import { runSelfTest } from './selftest'
 import { seedSmokeVault } from './smoke'
@@ -73,6 +74,7 @@ function registerIpc(): void {
   registerLinksIpc()
   registerAssetsIpc()
   registerMenuIpc()
+  registerTodosIpc()
 
   ipcMain.on('app:set-title', (e, title: string) => {
     BrowserWindow.fromWebContents(e.sender)?.setTitle(title)

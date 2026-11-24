@@ -12,6 +12,7 @@ import { DeleteModal } from './components/DeleteModal'
 import { DeleteVaultModal } from './components/DeleteVaultModal'
 import { ConfirmModal } from './components/ConfirmModal'
 import { Intro } from './components/Intro'
+import { TodoBookmark } from './components/TodoBookmark'
 import { Welcome } from './components/Welcome'
 import { Toast } from './components/Toast'
 import type { Vec3 } from './lib/layout'
@@ -640,6 +641,7 @@ export default function App(): JSX.Element {
         onCancel={() => setDeletingVault(null)}
         onConfirm={handleConfirmDeleteVault}
       />
+      <TodoBookmark />
       <Toast />
       {introOverlay}
     </div>
