@@ -1,8 +1,10 @@
 /**
- * 星球大小滑条冒烟：
- *  1) 右键星球 → 改颜色/外观 → 弹「星球外观」
- *  2) 里面有大小滑条，拖到 2.2× 会调用 noteUpdate({ scale })
- *  3) 另外两件事：颜色按钮仍在、恢复默认能回到 1
+ * 星球外观冒烟（颜色和大小一起调）：
+ *  1) 右键星球 → 弹「星球外观」，6 色 + 大小滑条
+ *  2) 点色块：立即生效，但**弹窗不关**
+ *  3) 接着拖滑条：弹窗仍然开着，值跟着变
+ *  4) 点「完成」才关窗
+ *  5) 「恢复原样」把颜色和大小一起还原
  *
  * 用法：node scripts/scale-test.mjs
  */
@@ -33,13 +35,19 @@ window.api = {
   vaultInit: async () => ({ ok: true, welcomeNoteId: 'solo' }), vaultCheckPath: async () => ({ ok: true }),
   vaultSaveSettings: async () => {},
   noteCreate: async () => notes[0], noteRead: async () => notes[0],
-  noteUpdate: async (id, patch) => { window.__CALLS__.push({ fn: 'noteUpdate', id, patch }); Object.assign(notes[0], patch); return notes[0]; },
+  noteUpdate: async (id, patch) => {
+    window.__CALLS__.push({ fn: 'noteUpdate', id, patch });
+    Object.assign(notes[0], patch);
+    return notes[0];
+  },
   noteDelete: async () => ({ ok: true }),
   linkCreate: async () => ({ link: {}, existed: false }), linkUpdate: async () => ({}), linkDelete: async () => ({ ok: true }),
   assetSave: async () => ({ relPath: 'x' }), pickImage: async () => null, clipboardReadImage: async () => null,
-  showContextMenu: async () => { window.__CALLS__.push({ fn: 'menu' }); return 'recolor'; },
+  showContextMenu: async () => 'recolor',
   notify: async () => {}, writeClipboard: async () => {}, setWindowTitle: async () => {},
-  readyToClose: () => {}, onFlushRequest: () => () => {}
+  readyToClose: () => {}, onFlushRequest: () => () => {},
+  todosList: async () => [], todosAdd: async () => ({}), todosToggle: async () => null,
+  todosRemove: async () => [], todosClearDone: async () => []
 };
 `
 
@@ -87,51 +95,79 @@ await page.waitForTimeout(5500)
 
 const steps = []
 
-// 星球在原点，画布中心约 (838, 450)
+// 打开「星球外观」
 await page.mouse.move(838, 450)
-await page.waitForTimeout(300)
-const tip = await page.locator('.planet-tip').count()
-
+await page.waitForTimeout(250)
 await page.mouse.click(838, 450, { button: 'right' })
-await page.waitForTimeout(900)
+await page.waitForTimeout(800)
 const modalTitle = await page.locator('.modal-title').innerText().catch(() => '')
 const hasRange = await page.locator('.scale-row input[type=range]').count()
-const hasSwatches = await page.locator('.swatch').count()
+const swatches = await page.locator('.swatch').count()
 steps.push({
   step: 'appearance-modal',
-  ok: modalTitle.includes('星球外观') && hasRange === 1 && hasSwatches === 6,
-  tip,
+  ok: modalTitle.includes('星球外观') && hasRange === 1 && swatches === 6,
   modalTitle,
   hasRange,
-  hasSwatches
+  swatches
 })
 
-// 拖到 2.2
+// 点第二个颜色：应即时生效且弹窗不关
+await page.locator('.swatch').nth(1).click()
+await page.waitForTimeout(500)
+const stillOpen = await page.locator('.modal-card').count()
+const activeColor = await page.locator('.swatch.on').evaluate((el) => getComputedStyle(el).backgroundColor)
+const callsAfterColor = await page.evaluate(
+  () => window.__CALLS__.filter((c) => c.fn === 'noteUpdate' && c.patch.color)
+)
+steps.push({
+  step: 'color-keeps-modal',
+  ok: stillOpen === 1 && callsAfterColor.length === 1,
+  stillOpen,
+  activeColor,
+  colorCalls: callsAfterColor.length
+})
+
+// 接着拖大小：弹窗仍然开着
 await page.locator('.scale-row input[type=range]').evaluate((el) => {
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
   setter.call(el, '2.2')
   el.dispatchEvent(new Event('input', { bubbles: true }))
 })
-await page.waitForTimeout(600)
+await page.waitForTimeout(500)
+const stillOpen2 = await page.locator('.modal-card').count()
 const valueText = await page.locator('.scale-value').innerText().catch(() => '')
-const calls = await page.evaluate(() => window.__CALLS__)
-const scaled = calls.filter((c) => c.fn === 'noteUpdate' && typeof c.patch.scale === 'number')
-const lastScale = scaled.length ? scaled[scaled.length - 1].patch.scale : null
-steps.push({ step: 'slider-updates', ok: valueText.includes('2.2') && lastScale === 2.2, valueText, lastScale })
+steps.push({ step: 'scale-after-color', ok: stillOpen2 === 1 && valueText.includes('2.2'), stillOpen2, valueText })
 await page.screenshot({ path: 'preview-scale.png' })
 
-// 恢复默认
-await page.locator('.scale-actions .link-btn').click()
-await page.waitForTimeout(600)
-const backCalls = await page.evaluate(() => window.__CALLS__)
-const resets = backCalls.filter((c) => c.fn === 'noteUpdate' && c.patch.scale === 1)
-steps.push({ step: 'reset-to-default', ok: resets.length > 0 })
+// 「完成」才关窗
+await page.locator('.modal-card .btn.primary').click()
+await page.waitForTimeout(500)
+steps.push({ step: 'done-closes', ok: (await page.locator('.modal-card').count()) === 0 })
 
-// 关掉弹窗
-await page.locator('.modal-card .btn.ghost').click()
+// 再打开 → 改色 + 改大小 → 「恢复原样」应同时还原
+await page.mouse.move(838, 450)
+await page.waitForTimeout(250)
+await page.mouse.click(838, 450, { button: 'right' })
+await page.waitForTimeout(800)
+await page.locator('.swatch').nth(3).click()
+await page.waitForTimeout(300)
+await page.locator('.scale-row input[type=range]').evaluate((el) => {
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+  setter.call(el, '1.5')
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+})
 await page.waitForTimeout(400)
-const closed = await page.locator('.modal-card').count()
-steps.push({ step: 'modal-closes', ok: closed === 0 })
+await page.locator('.modal-actions .link-btn').click()
+await page.waitForTimeout(600)
+const calls = await page.evaluate(() => window.__CALLS__.filter((c) => c.fn === 'noteUpdate'))
+const last = calls[calls.length - 1]
+const resetOk =
+  !!last && last.patch.color === '#7ee0b8' && Math.abs((last.patch.scale ?? 0) - 2.2) < 0.001
+steps.push({
+  step: 'reset-restores-both',
+  ok: resetOk && (await page.locator('.modal-card').count()) === 0,
+  lastPatch: last?.patch ?? null
+})
 
 await browser.close()
 server.close()
